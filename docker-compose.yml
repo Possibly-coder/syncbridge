@@ -1,0 +1,30 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: syncbridge
+      POSTGRES_PASSWORD: syncbridge
+      POSTGRES_DB: syncbridge
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U syncbridge"]
+      interval: 3s
+      retries: 10
+
+  tracker:
+    build: .
+    command: uvicorn mock_tracker.main:app --host 0.0.0.0 --port 9000
+    environment:
+      TRACKER_FAILURE_RATE: "0.15"
+      TRACKER_RATE_LIMIT_PER_SEC: "5"
+
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://syncbridge:syncbridge@db:5432/syncbridge
+    depends_on:
+      db:
+        condition: service_healthy
+      tracker:
+        condition: service_started
